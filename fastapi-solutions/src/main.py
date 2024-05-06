@@ -4,9 +4,10 @@ from fastapi import FastAPI
 from fastapi.responses import ORJSONResponse
 from redis.asyncio import Redis
 
-from api.v1 import films
-from core import config
-from db import elastic, redis
+from src.api.v1 import films
+from src.core import config
+from src.db import elastic
+from src.db import redis
 
 app = FastAPI(
     # Конфигурируем название проекта. Оно будет отображаться в документации
@@ -25,7 +26,7 @@ app = FastAPI(
 async def startup():
     redis.redis = Redis(host=config.REDIS_HOST, port=config.REDIS_PORT)
     elastic.es = AsyncElasticsearch(
-        hosts=[f"https://{config.ELASTIC_HOST}:{config.ELASTIC_PORT}"]
+        hosts=[f"http://{config.ELASTIC_HOST}:{config.ELASTIC_PORT}"]
     )
 
 
