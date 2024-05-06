@@ -6,7 +6,7 @@ services:
       - "8000:8000"
     depends_on:
       search:
-        condition: service_started
+        condition: service_healthy
       cache:
         condition: service_started
     networks:
@@ -14,8 +14,6 @@ services:
 
   search:
     image: krissmelikova/awesome_repository:v1
-    volumes:
-      - .es/data:/usr/share/elasticsearch/data
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
