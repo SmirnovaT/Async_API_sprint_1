@@ -12,4 +12,4 @@ RUN groupadd -r web && useradd -d /opt/app-r -g web web \
      && chown web:web -R /opt/app
 USER web
 
-CMD ["python", "main.py"]
+CMD ["python", "./src/main.py"]
