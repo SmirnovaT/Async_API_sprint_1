@@ -1,7 +1,8 @@
+from typing import Optional
 import orjson
 
 # Используем pydantic для упрощения работы при перегонке данных из json в объекты
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 def orjson_dumps(v, *, default):
@@ -10,9 +11,10 @@ def orjson_dumps(v, *, default):
 
 
 class Film(BaseModel):
-    id: str
-    title: str
-    description: str
+    uuid: str = Field(..., alias="id")
+    title: Optional[str]
+    description: Optional[str]
+    imdb_rating: Optional[float]
 
     class Config:
         # Заменяем стандартную работу с json на более быструю
