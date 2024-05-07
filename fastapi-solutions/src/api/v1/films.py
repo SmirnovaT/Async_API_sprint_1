@@ -1,5 +1,6 @@
 from http import HTTPStatus
-
+from typing import Optional, List
+import uuid
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
@@ -16,8 +17,9 @@ router = APIRouter()
 
 # Модель ответа API
 class Film(BaseModel):
-    id: str
+    uuid: uuid.UUID
     title: str
+    imdb_rating: Optional[float]
 
 
 # С помощью декоратора регистрируем обработчик film_details
@@ -44,4 +46,17 @@ async def film_details(
     # Если бы использовалась общая модель для бизнес-логики и формирования ответов API
     # вы бы предоставляли клиентам данные, которые им не нужны
     # и, возможно, данные, которые опасно возвращать
-    return Film(id=film.id, title=film.title)
+    return Film(uuid=film.id, title=film.title, imdb_rating=film.imdb_rating)
+
+
+@router.get("/", response_model=List[Film], summary="Получение всех фильмов")
+async def films(
+    genre: uuid.UUID = None,
+    sort: str = "-imdb_rating",
+    page_size: int = 10,
+    page_number: int = 1,
+    film_service: FilmService = Depends(get_film_service),
+) -> List[Film]:
+    return await film_service.get_films(
+        genre=genre, sort=sort, page_size=page_size, page_number=page_number
+    )

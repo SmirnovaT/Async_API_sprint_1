@@ -1,8 +1,10 @@
+import uuid
 from functools import lru_cache
+from http import HTTPStatus
 from typing import Optional
 
 from elasticsearch import AsyncElasticsearch, NotFoundError
-from fastapi import Depends
+from fastapi import Depends, HTTPException
 from redis.asyncio import Redis
 
 from src.db.elastic import get_elastic
@@ -38,6 +40,76 @@ class FilmService:
         except NotFoundError:
             return None
         return Film(**doc["_source"])
+
+    # Todo Добавить проверку на кеш в редисе
+    async def get_films(
+        self,
+        genre: uuid.UUID = None,
+        sort: str = "-imdb_rating",
+        page_size: int = 10,
+        page_number: int = 1,
+    ) -> list[Film]:
+        films = await self._get_all_films_from_elastic(
+            genre=genre, sort=sort, page_size=page_size, page_number=page_number
+        )
+        return films
+
+    async def _get_all_films_from_elastic(
+        self,
+        genre: uuid.UUID = None,
+        sort: str = "-imdb_rating",
+        page_size: int = 10,
+        page_number: int = 1,
+    ) -> list[Film]:
+        """Получение всех фильмов с возможностью фильтрации по uuid жанра.
+        По умолчанию остортированы по убыванию imdb_rating"""
+
+        try:
+            query = await self.construct_query(genre, sort, page_size, page_number)
+            result = await self.elastic.search(index="movies", body=query)
+            films = [Film(**doc["_source"]) for doc in result["hits"]["hits"]]
+            return films
+        except Exception as e:
+            raise HTTPException(
+                status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
+                detail=f"Произошла непредвиденная ошибка {e}",
+            )
+
+    async def construct_query(
+        self,
+        genre: uuid.UUID = None,
+        sort: str = "-imdb_rating",
+        page_size: int = 10,
+        page_number: int = 1,
+    ) -> dict:
+        """Создание запроса для выполнения к индексу Elasticsearch"""
+
+        sort_direction = "asc" if not sort.startswith("-") else "desc"
+        sort_field = sort[1:] if sort_direction == "desc" else sort
+        query = {
+            "query": {"match_all": {}},
+            "sort": [{sort_field: {"order": sort_direction}}],
+            "from": (page_number - 1) * page_size,
+            "size": page_size,
+        }
+        genre_name = await self.get_genre_name(genre)
+        if genre_name:
+            query["query"] = {"terms": {"genres": [str(genre_name)]}}
+        return query
+
+    async def get_genre_name(self, genre: uuid.UUID = None) -> str:
+        """Получение названия жанра по переданному uuid жанра"""
+
+        if genre:
+            try:
+                genre_result = await self.elastic.get(index="genres", id=str(genre))
+                return genre_result["_source"]["name"]
+            except NotFoundError as e:
+                raise HTTPException(
+                    status_code=HTTPStatus.NOT_FOUND,
+                    detail=f"Переданный жанр не найден: {e}",
+                )
+        return None
 
     async def _film_from_cache(self, film_id: str) -> Optional[Film]:
         # Пытаемся получить данные о фильме из кеша, используя команду get
