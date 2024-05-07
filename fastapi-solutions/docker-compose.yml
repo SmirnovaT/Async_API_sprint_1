@@ -3,7 +3,7 @@ services:
     build: .
     restart: always
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     depends_on:
       search:
         condition: service_healthy
@@ -18,9 +18,6 @@ services:
       - discovery.type=single-node
       - xpack.security.enabled=false
       - cluster.routing.allocation.disk.threshold_enabled=false
-    ports:
-      - "9200:9200"
-      - "9300:9300"
     healthcheck:
        test: curl -s http://fastapi-solutions-search-1:9200
        interval: 30s
