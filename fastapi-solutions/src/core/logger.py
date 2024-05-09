@@ -62,4 +62,4 @@ LOGGING = {
 
 
 logging.config.dictConfig(LOGGING)
-a_api_logger = logging.getLogger('async_api_logger')
+a_api_logger = logging.getLogger("async_api_logger")
