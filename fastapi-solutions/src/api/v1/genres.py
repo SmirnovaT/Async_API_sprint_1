@@ -31,3 +31,17 @@ async def genres(
         raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="Не найдено ни одного жанра")
 
     return genres_list
+
+
+@router.get(
+    "/{genre_id}",
+    response_model=Genre,
+    summary="Получение жанра по его uuid",
+    description="Возвращает информацию по заданному жанру",
+)
+async def genre(genre_uuid: str, genre_service: GenreService = Depends(get_genre_service)) -> Genre:
+    genre = await genre_service.get_genre(genre_uuid)
+    if not genre:
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="Жанр не найден")
+
+    return genre

@@ -21,7 +21,26 @@ class GenreService:
         self.elastic = elastic
         self.index_name = index_name
 
-    async def get_genres(self, page_number: int, page_size: int):
+    async def get_genre(self, genre_uuid: str) -> Genre | None:
+        """ Получение информации по конкретному жанру по его uuid """
+
+        try:
+            response_from_es = await self.elastic.get(index=self.index_name, id=genre_uuid)
+        except NotFoundError as nf_err:
+            a_api_logger.error(f"Жанр (uuid: {genre_uuid}) не найден, ошибка: {nf_err}")
+            return None
+        except Exception as gen_exc:
+            a_api_logger.error(f"Ошибка в процессе поиска жанра (uuid: {genre_uuid}): {gen_exc}")
+            return None
+
+        genre = response_from_es["_source"]
+        if not genre:
+            a_api_logger.info(f"Жанр (uuid: {genre_uuid}) не найден")
+            return None
+
+        return Genre(**genre)
+
+    async def get_genres(self, page_number: int, page_size: int) -> List[Genre] | None:
         """ Получение списка жанров из поисковой системы или кеша """
 
         genres = await self.get_all_genres_from_elastic(page_size=page_size, page_number=page_number)
@@ -68,8 +87,8 @@ class GenreService:
 
         try:
             es_response = await self.elastic.search(index=self.index_name, body=query)
-        except NotFoundError as nf_exc:
-            a_api_logger.error(f"Жанры не найдены, ошибка: {nf_exc}")
+        except NotFoundError as nf_err:
+            a_api_logger.error(f"Жанры не найдены, ошибка: {nf_err}")
             return None
         except Exception as gen_exc:
             a_api_logger.error(f"Ошибка в процессе поиска жанров: {gen_exc}")
