@@ -7,7 +7,7 @@ from elasticsearch import AsyncElasticsearch, NotFoundError
 from fastapi import Depends, HTTPException
 from redis.asyncio import Redis
 
-from src.core.logger import LOGGING, a_api_logger
+from src.core.logger import a_api_logger
 from src.db.elastic import get_elastic
 from src.db.redis import get_redis
 from src.models.film import FullFilm, Genre, FilmBase
@@ -52,7 +52,7 @@ class FilmService:
         genres_list = []
         for genre_name in film_data["genres"]:
             genre_uuid = await self.genre_service.get_uuid_genre(genre_name)
-            genre_obj = Genre(uuid=genre_uuid, name=genre_name)
+            genre_obj = Genre(id=genre_uuid, name=genre_name)
             genres_list.append(genre_obj)
 
         film_data.update(
@@ -72,7 +72,7 @@ class FilmService:
             for person in person_data
         ]
 
-    async def get_similar_films(self, film_id: str) -> List[FilmBase]:
+    async def get_similar_films(self, film_id: str) -> List[FilmBase] | None:
         """Получение списка фильмов, у которых есть хотя бы один такой же жанр,
         как у переданного фильма (film_id)"""
 
