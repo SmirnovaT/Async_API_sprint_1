@@ -132,7 +132,7 @@ class FilmService:
         По умолчанию остортированы по убыванию imdb_rating"""
 
         cache_key = await self.cache.cache_key_generation(
-            genre="kkk", sort=sort, page_number=page_number, page_size=page_size,
+            genre=genre, sort=sort, page_number=page_number, page_size=page_size,
         )
         films = await self.cache.get(cache_key)
 
