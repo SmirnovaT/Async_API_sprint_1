@@ -1,7 +1,7 @@
 import uuid
 from functools import lru_cache
 from http import HTTPStatus
-from typing import Optional, List
+from typing import List
 from pydantic import parse_obj_as
 from elasticsearch import AsyncElasticsearch, NotFoundError
 from fastapi import Depends, HTTPException
@@ -18,35 +18,41 @@ FILM_CACHE_EXPIRE_IN_SECONDS = 60 * 5  # 5 минут
 
 
 class FilmService:
+    """Класс, который позволяет вернуть данные о фильмах"""
+
     def __init__(
         self,
         redis: Redis,
         elastic: AsyncElasticsearch,
         genre_service: GenreService,
+        index_name: str = "movies",
     ):
         self.redis = redis
         self.elastic = elastic
         self.genre_service = genre_service
+        self.index_name = index_name
 
-    async def get_film_details(self, film_id: str) -> Optional[FullFilm]:
+    async def get_film_details(self, film_id: str) -> FullFilm | None:
         """Получение полной информации по фильму"""
-        film_data = await self._get_film_from_elastic(film_id)
+
+        film_data = await self.get_film_from_elastic(film_id)
         if not film_data:
             return None
-        film = await self._get_full_info(film_data)
+        film = await self.get_full_info(film_data)
         return film
 
-    async def _get_film_from_elastic(self, film_id: str) -> Optional[dict]:
+    async def get_film_from_elastic(self, film_id: str) -> dict | None:
         """Получение фильмов по id фильма"""
+
         try:
-            doc = await self.elastic.get(index="movies", id=film_id)
+            doc = await self.elastic.get(index=self.index_name, id=film_id)
             film_data = doc["_source"]
             return film_data
         except NotFoundError as e:
             a_api_logger.error(f"Фильм не найден: {e}")
             return None
 
-    async def _get_full_info(self, film_data: dict) -> FullFilm:
+    async def get_full_info(self, film_data: dict) -> FullFilm:
         """Преобразование исходных данных фильма"""
 
         genres_list = []
@@ -58,15 +64,15 @@ class FilmService:
         film_data.update(
             {
                 "genres": genres_list,
-                "actors": await self._get_person_list(film_data["actors"]),
-                "writers": await self._get_person_list(film_data["writers"]),
-                "directors": await self._get_person_list(film_data["directors"]),
+                "actors": await self.get_person_list(film_data["actors"]),
+                "writers": await self.get_person_list(film_data["writers"]),
+                "directors": await self.get_person_list(film_data["directors"]),
             }
         )
         return FullFilm(**film_data)
 
     @staticmethod
-    async def _get_person_list(person_data):
+    async def get_person_list(person_data):
         return [
             Person(uuid=person["id"], full_name=person["name"])
             for person in person_data
@@ -76,9 +82,10 @@ class FilmService:
         """Получение списка фильмов, у которых есть хотя бы один такой же жанр,
         как у переданного фильма (film_id)"""
 
-        film_data = await self._get_film_from_elastic(film_id)
+        film_data = await self.get_film_from_elastic(film_id)
         if not film_data:
             return None
+
         genres = film_data["genres"]
         query = {
             "query": {
@@ -88,7 +95,8 @@ class FilmService:
                 }
             }
         }
-        result = await self.elastic.search(index="movies", body=query)
+        result = await self.elastic.search(index=self.index_name, body=query)
+
         films = [
             parse_obj_as(FilmBase, hit["_source"]) for hit in result["hits"]["hits"]
         ]
@@ -98,15 +106,16 @@ class FilmService:
         self,
         genre: uuid.UUID = None,
         sort: str = "-imdb_rating",
-        page_size: int = 10,
         page_number: int = 1,
+        page_size: int = 10,
     ) -> list[FilmBase]:
         """Получение всех фильмов с возможностью фильтрации по uuid жанра.
         По умолчанию остортированы по убыванию imdb_rating"""
 
+        query = await self.construct_query(genre, sort, page_number, page_size)
+
         try:
-            query = await self._construct_query(genre, sort, page_size, page_number)
-            result = await self.elastic.search(index="movies", body=query)
+            result = await self.elastic.search(index=self.index_name, body=query)
             films = [FilmBase(**doc["_source"]) for doc in result["hits"]["hits"]]
             return films
         except Exception as e:
@@ -116,17 +125,18 @@ class FilmService:
                 detail=f"Произошла непредвиденная ошибка {e}",
             )
 
-    async def _construct_query(
+    async def construct_query(
         self,
         genre: uuid.UUID = None,
         sort: str = "-imdb_rating",
-        page_size: int = 10,
         page_number: int = 1,
+        page_size: int = 10,
     ) -> dict:
-        """Создание запроса для выполнения к индексу Elasticsearch"""
+        """Создание запроса на получение фильмов с фильтрацией по жанру из Elasticsearch"""
 
         sort_direction = "asc" if not sort.startswith("-") else "desc"
         sort_field = sort[1:] if sort_direction == "desc" else sort
+
         query = {
             "query": {"match_all": {}},
             "sort": [{sort_field: {"order": sort_direction}}],
@@ -138,7 +148,39 @@ class FilmService:
             query["query"] = {"terms": {"genres": [str(genre_name)]}}
         return query
 
-    async def _film_from_cache(self, film_id: str) -> Optional[FilmBase]:
+    async def search_film(
+        self, search: str, page_number: int, page_size: int
+    ) -> List[FilmBase] | None:
+        """Поиск фильмов"""
+
+        query = await self.construct_query_for_search(search, page_number, page_size)
+        result = await self.elastic.search(index=self.index_name, body=query)
+
+        film = [
+            parse_obj_as(FilmBase, hit["_source"]) for hit in result["hits"]["hits"]
+        ]
+        return film
+
+    @staticmethod
+    async def construct_query_for_search(
+        search: str, page_number: int, page_size: int
+    ) -> dict:
+        """Создание запроса для полнотекстового поиска фильмов в Elasticsearch"""
+
+        query = {
+            "query": {
+                "multi_match": {
+                    "query": search,
+                    "fields": ["title", "description"],
+                    "fuzziness": "AUTO",
+                }
+            },
+            "from": (page_number - 1) * page_size,
+            "size": page_size,
+        }
+        return query
+
+    async def _film_from_cache(self, film_id: str) -> FilmBase | None:
         # Пытаемся получить данные о фильме из кеша, используя команду get
         # https://redis.io/commands/get/
         data = await self.redis.get(film_id)
