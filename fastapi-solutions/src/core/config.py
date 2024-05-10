@@ -1,3 +1,4 @@
+import os
 from functools import lru_cache
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pathlib import Path
@@ -18,6 +19,7 @@ class Settings(BaseSettings):
     REDIS_PORT: int = 6379
     REDIS_USER: str = "app"
     REDIS_PASSWORD: str
+    CACHE_EXPIRE_IN_SECONDS = int(os.getenv("CACHE_EXPIRE_IN_SECONDS", 300))
 
     ELASTIC_HOST: str
     ELASTIC_PORT: int = 9200

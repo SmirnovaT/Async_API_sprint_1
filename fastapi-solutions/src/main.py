@@ -8,7 +8,7 @@ from src.api.v1 import films, genres, persons
 from src.core.config import config
 
 from src.db import elastic
-from src.db import redis
+from src.db import cache
 
 app = FastAPI(
     title=config.PROJECT_NAME,
@@ -20,7 +20,7 @@ app = FastAPI(
 
 @app.on_event("startup")
 async def startup():
-    redis.redis = Redis(host=config.REDIS_HOST, port=config.REDIS_PORT)
+    cache.redis = Redis(host=config.REDIS_HOST, port=config.REDIS_PORT)
     elastic.es = AsyncElasticsearch(
         hosts=[f"http://{config.ELASTIC_HOST}:{config.ELASTIC_PORT}"]
     )
@@ -28,7 +28,7 @@ async def startup():
 
 @app.on_event("shutdown")
 async def shutdown():
-    await redis.redis.close()
+    await cache.redis.close()
     await elastic.es.close()
 
 

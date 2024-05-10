@@ -9,7 +9,7 @@ from redis.asyncio import Redis
 
 from src.core.logger import a_api_logger
 from src.db.elastic import get_elastic
-from src.db.redis import get_redis
+from src.db.cache import get_redis
 from src.models.film import FullFilm, Genre, FilmBase
 from src.models.person import Person
 from src.services.genre import GenreService, get_genre_service
