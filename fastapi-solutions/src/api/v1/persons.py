@@ -17,7 +17,7 @@ class PersonFilm(BaseModel):
 class Person(BaseModel):
     id: uuid.UUID
     full_name: str
-    #films: List[PersonFilm]
+    #films: List[PersonFilm] | None
 
 @router.get("/search", response_model=List[Person])
 async def person_search(

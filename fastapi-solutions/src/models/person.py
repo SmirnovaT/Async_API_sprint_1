@@ -20,7 +20,7 @@ class PersonFilm(BaseModel):
 class Person(BaseModel):
     uuid: str = Field(..., alias="id")
     full_name: str
-    #films: List[PersonFilm]
+    #films: List[PersonFilm] | None
 
     class Config:
         # Заменяем стандартную работу с json на более быструю
