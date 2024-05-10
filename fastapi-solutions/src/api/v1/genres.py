@@ -23,12 +23,16 @@ class Genre(BaseModel):
     description="Возвращает список всех жанров",
 )
 async def genres(
-        paginated_params: Paginator = Depends(),
-        genre_service: GenreService = Depends(get_genre_service),
+    paginated_params: Paginator = Depends(),
+    genre_service: GenreService = Depends(get_genre_service),
 ) -> List[Genre]:
-    genres_list = await genre_service.get_genres(paginated_params.page_number, paginated_params.page_size)
+    genres_list = await genre_service.get_genres(
+        paginated_params.page_number, paginated_params.page_size
+    )
     if not genres_list:
-        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="Не найдено ни одного жанра")
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Не найдено ни одного жанра"
+        )
 
     return genres_list
 
@@ -39,9 +43,10 @@ async def genres(
     summary="Получение жанра по его uuid",
     description="Возвращает информацию по заданному жанру",
 )
-async def genre(genre_uuid: str, genre_service: GenreService = Depends(get_genre_service)) -> Genre:
+async def genre(
+    genre_uuid: str, genre_service: GenreService = Depends(get_genre_service)
+) -> Genre:
     genre = await genre_service.get_genre(genre_uuid)
     if not genre:
         raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="Жанр не найден")
-
     return genre
