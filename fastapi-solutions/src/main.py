@@ -5,19 +5,15 @@ from fastapi.responses import ORJSONResponse
 from redis.asyncio import Redis
 
 from src.api.v1 import films, genres, persons
-from src.core import config
+from src.core.config import config
+
 from src.db import elastic
 from src.db import redis
 
 app = FastAPI(
-    # Конфигурируем название проекта. Оно будет отображаться в документации
     title=config.PROJECT_NAME,
-    # Адрес документации в красивом интерфейсе
     docs_url="/api/openapi",
-    # Адрес документации в формате OpenAPI
     openapi_url="/api/openapi.json",
-    # Можно сразу сделать небольшую оптимизацию сервиса
-    # и заменить стандартный JSON-сереализатор на более шуструю версию, написанную на Rust
     default_response_class=ORJSONResponse,
 )
 
@@ -36,19 +32,13 @@ async def shutdown():
     await elastic.es.close()
 
 
-# Подключаем роутер к серверу, указав префикс /v1/films
-# Теги указываем для удобства навигации по документации
 app.include_router(films.router, prefix="/api/v1/films", tags=["films"])
 app.include_router(genres.router, prefix="/api/v1/genres", tags=["genres"])
 app.include_router(persons.router, prefix="/api/v1/persons", tags=["persons"])
 
 if __name__ == "__main__":
-    # Приложение может запускаться командой
-    # `uvicorn main:app --host 0.0.0.0 --port 8000`
-    # но чтобы не терять возможность использовать дебагер,
-    # запустим uvicorn сервер через python
     uvicorn.run(
         "main:app",
-        host="0.0.0.0",
+        host="127.0.0.1",
         port=8000,
     )
