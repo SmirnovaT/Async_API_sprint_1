@@ -86,7 +86,7 @@ async def search_film(
     search: str,
     paginated_params: Paginator = Depends(),
     film_service: FilmService = Depends(get_film_service),
-) -> List[Films]:
+) -> List[Films] | None:
     films = await film_service.search_film(
         search, paginated_params.page_number, paginated_params.page_size
     )
