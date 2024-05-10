@@ -1,12 +1,15 @@
-from typing import List
-import uuid as uuid
-import orjson
-
-from pydantic import BaseModel, Field
+from orjson import orjson
+from pydantic import BaseModel
+from src.shared.orjson_dumps import orjson_dumps
 
 
-def orjson_dumps(v, *, default):
-    return orjson.dumps(v, default=default).decode()
+class Person(BaseModel):
+    uuid: str
+    full_name: str
+
+    class Config:
+        json_loads = orjson.loads
+        json_dumps = orjson_dumps
 
 class PersonFilm(BaseModel):
     uuid: uuid.UUID
@@ -15,18 +18,3 @@ class PersonFilm(BaseModel):
     class Config:
         json_loads = orjson.loads
         json_dumps = orjson_dumps
-
-
-class Person(BaseModel):
-    uuid: str = Field(..., alias="id")
-    full_name: str
-    #films: List[PersonFilm] | None
-
-    class Config:
-        # Заменяем стандартную работу с json на более быструю
-        json_loads = orjson.loads
-        json_dumps = orjson_dumps
-
-
-
-
