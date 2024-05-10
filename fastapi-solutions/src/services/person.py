@@ -1,16 +1,15 @@
-import json
-import logging
 from functools import lru_cache
 from typing import Optional
 
-from fastapi import Depends, HTTPException
+from fastapi import Depends
 
 from elasticsearch import AsyncElasticsearch, NotFoundError
 from redis.asyncio import Redis
 
+from src.core.logger import a_api_logger
 from src.db.elastic import get_elastic
 from src.db.redis import get_redis
-from src.models.person import Person
+from src.models.person import Person, PersonFilm
 
 
 class PersonService:
@@ -23,7 +22,7 @@ class PersonService:
         if not person:
             person = await self._get_person_from_elastic(person_id)
             if not person:
-                logging.error("Not found person")
+                a_api_logger("Not found person")
                 return None
             await self._put_person_to_cache(person_id)
         return person
@@ -40,10 +39,22 @@ class PersonService:
         try:
             query = await self._construct_query(query, page_size, page_number)
             doc = await self.elastic.search(index="persons", body=query)
-            logging.error(doc)
+            persons_list = []
+            for hit in doc["hits"]["hits"]:
+                films = await self.get_films_for_persons(hit["_source"]["full_name"])
+                person_films = [
+                    PersonFilm(uuid=film[0], roles=film[1]) for film in films.items()
+                ]
+                persons_list.append(
+                    Person(
+                        uuid=hit["_source"]["id"],
+                        full_name=hit["_source"]["full_name"],
+                        films=person_films,
+                    ).dict()
+                )
         except NotFoundError:
             return None
-        return [Person(**hit["_source"]).dict(by_alias=True) for hit in doc["hits"]["hits"]]
+        return persons_list
 
     async def _construct_query(
         self,
@@ -53,33 +64,61 @@ class PersonService:
     ) -> dict:
         """Создание запроса для выполнения к индексу Elasticsearch"""
         query = {
-            "query": {
-                "match": {
-                    "full_name": {
-                        "query": query,
-                        "fuzziness": "auto"
-                    }
-                }
-            },
+            "query": {"match": {"full_name": {"query": query, "fuzziness": "auto"}}},
             "from": (page_number - 1) * page_size,
-            "size": page_size
+            "size": page_size,
         }
         return query
 
     async def _get_person_from_elastic(self, person_id):
         try:
             doc = await self.elastic.get(index="persons", id=person_id)
-            logging.error("Success!")
+            result = doc["_source"]
+            films = await self.get_films_for_persons(result["full_name"])
+            person_films = [
+                PersonFilm(uuid=film[0], roles=film[1]) for film in films.items()
+            ]
         except NotFoundError:
-            logging.error("Failed to get person from elastic!")
+            a_api_logger("Failed to get person from elastic!")
             return None
-        return Person(**doc["_source"]).dict(by_alias=True)
+        return Person(
+            uuid=result["id"], full_name=result["full_name"], films=person_films
+        )
+
+    async def get_films_for_persons(self, person_name):
+        ROLES = {
+            "directors_names": "director",
+            "actors_names": "actor",
+            "writers_names": "writer",
+        }
+        try:
+            films = {}
+            for role in ROLES.keys():
+                query = {
+                    "query": {
+                        "bool": {
+                            "should": [{"match": {role: person_name}}],
+                            "minimum_should_match": 1,
+                        }
+                    }
+                }
+                result = await self.elastic.search(index="movies", body=query)
+                if result:
+                    for film in result["hits"]["hits"]:
+                        film = film["_source"]
+                        if film["id"] not in films:
+                            films[film["id"]] = [ROLES[role]]
+                        else:
+                            films[film["id"]].append(ROLES[role])
+            return films
+        except NotFoundError:
+            return None
 
 
 @lru_cache()
 @lru_cache()
 def get_person_service(
-        redis: Redis = Depends(get_redis),
-        elastic: AsyncElasticsearch = Depends(get_elastic),
-    ) -> PersonService:
-        return PersonService(redis, elastic)
+    redis: Redis = Depends(get_redis),
+    elastic: AsyncElasticsearch = Depends(get_elastic),
+) -> PersonService:
+    return PersonService(redis, elastic)
