@@ -1,24 +1,39 @@
-import os
+from functools import lru_cache
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from pathlib import Path
+from dotenv import load_dotenv
+
 from logging import config as logging_config
 from src.core.logger import LOGGING
 
-# Применяем настройки логирования
 logging_config.dictConfig(LOGGING)
 
-# Название проекта. Используется в Swagger-документации
-PROJECT_NAME = os.getenv("PROJECT_NAME", "movies")
 
-# Настройки Redis
-REDIS_HOST = os.getenv("REDIS_HOST", "127.0.0.1")
-REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
+class Settings(BaseSettings):
+    """Конфигурация проекта"""
 
-# Настройки Elasticsearch
-ELASTIC_HOST = os.getenv("ELASTIC_HOST", "127.0.0.1")
-ELASTIC_PORT = int(os.getenv("ELASTIC_PORT", 9200))
+    PROJECT_NAME: str = "movies"
 
-# Pagination
-PAGE_SIZE = int(os.getenv("PAGE_SIZE", 10))
-PAGE_NUMBER = int(os.getenv("PAGE_NUMBER", 1))
+    REDIS_HOST: str
+    REDIS_PORT: int = 6379
+    REDIS_USER: str = "app"
+    REDIS_PASSWORD: str
 
-# Корень проекта
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    ELASTIC_HOST: str
+    ELASTIC_PORT: int = 9200
+
+    PAGE_SIZE: int = 10
+    PAGE_NUMBER: int = 1
+
+    model_config = SettingsConfigDict(
+        env_file=Path(__file__).resolve().parent.parent.parent / ".env"
+    )
+
+
+@lru_cache
+def get_settings():
+    load_dotenv()
+    return Settings()
+
+
+config = get_settings()
