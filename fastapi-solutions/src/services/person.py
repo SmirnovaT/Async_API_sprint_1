@@ -9,7 +9,7 @@ from redis.asyncio import Redis
 from src.core.logger import a_api_logger
 from src.db.elastic import get_elastic
 from src.db.redis import get_redis
-from src.models.person import Person, PersonFilm
+from src.models.person import PersonWithFilms, PersonFilm
 
 
 class PersonService:
@@ -17,7 +17,7 @@ class PersonService:
         self.redis = redis
         self.elastic = elastic
 
-    async def get_by_id(self, person_id: str) -> Optional[Person]:
+    async def get_by_id(self, person_id: str) -> Optional[PersonWithFilms]:
         person = await self._person_from_cache(person_id)
         if not person:
             person = await self._get_person_from_elastic(person_id)
@@ -46,7 +46,7 @@ class PersonService:
                     PersonFilm(uuid=film[0], roles=film[1]) for film in films.items()
                 ]
                 persons_list.append(
-                    Person(
+                    PersonWithFilms(
                         uuid=hit["_source"]["id"],
                         full_name=hit["_source"]["full_name"],
                         films=person_films,
@@ -81,7 +81,7 @@ class PersonService:
         except NotFoundError:
             a_api_logger("Failed to get person from elastic!")
             return None
-        return Person(
+        return PersonWithFilms(
             uuid=result["id"], full_name=result["full_name"], films=person_films
         )
 

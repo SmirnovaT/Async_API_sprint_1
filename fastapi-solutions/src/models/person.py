@@ -2,7 +2,17 @@ import uuid
 from orjson import orjson
 from pydantic import BaseModel
 from typing import List
-from src.shared.orjson_dumps import orjson_dumps
+
+from src.utils.orjson_dumps import orjson_dumps
+
+
+class Person(BaseModel):
+    uuid: str
+    full_name: str
+
+    class Config:
+        json_loads = orjson.loads
+        json_dumps = orjson_dumps
 
 
 class PersonFilm(BaseModel):
@@ -14,7 +24,7 @@ class PersonFilm(BaseModel):
         json_dumps = orjson_dumps
 
 
-class Person(BaseModel):
+class PersonWithFilms(BaseModel):
     uuid: str
     full_name: str
     films: List[PersonFilm]

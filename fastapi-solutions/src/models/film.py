@@ -1,18 +1,18 @@
-from typing import Optional, List
+from typing import List
 import orjson
 
 from pydantic import BaseModel, Field
 
 from src.models.genre import Genre
 from src.models.person import Person
-from src.shared.orjson_dumps import orjson_dumps
+from src.utils.orjson_dumps import orjson_dumps
 
 
 class FilmBase(BaseModel):
     uuid: str = Field(..., alias="id")
-    title: Optional[str]
-    description: Optional[str]
-    imdb_rating: Optional[float]
+    title: str | None
+    description: str | None
+    imdb_rating: float | None
 
     class Config:
         json_loads = orjson.loads
@@ -21,9 +21,9 @@ class FilmBase(BaseModel):
 
 class FullFilm(BaseModel):
     uuid: str = Field(..., alias="id")
-    title: Optional[str]
-    description: Optional[str]
-    imdb_rating: Optional[float]
+    title: str | None
+    description: str | None
+    imdb_rating: float | None
     genres: List[Genre]
     actors: List[Person]
     writers: List[Person]

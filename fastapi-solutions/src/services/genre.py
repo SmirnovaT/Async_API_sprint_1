@@ -15,22 +15,29 @@ from src.models.genre import Genre
 
 
 class GenreService:
-    """ Класс, который позволяет вернуть данные о жанрах """
-    def __init__(self, redis: Redis, elastic: AsyncElasticsearch, index_name: str = "genres"):
+    """Класс, который позволяет вернуть данные о жанрах"""
+
+    def __init__(
+        self, redis: Redis, elastic: AsyncElasticsearch, index_name: str = "genres"
+    ):
         self.redis = redis
         self.elastic = elastic
         self.index_name = index_name
 
     async def get_genre(self, genre_uuid: str) -> Genre | None:
-        """ Получение информации по конкретному жанру по его uuid """
+        """Получение информации по конкретному жанру по его uuid"""
 
         try:
-            response_from_es = await self.elastic.get(index=self.index_name, id=genre_uuid)
+            response_from_es = await self.elastic.get(
+                index=self.index_name, id=genre_uuid
+            )
         except NotFoundError as nf_err:
             a_api_logger.error(f"Жанр (uuid: {genre_uuid}) не найден, ошибка: {nf_err}")
             return None
         except Exception as gen_exc:
-            a_api_logger.error(f"Ошибка в процессе поиска жанра (uuid: {genre_uuid}): {gen_exc}")
+            a_api_logger.error(
+                f"Ошибка в процессе поиска жанра (uuid: {genre_uuid}): {gen_exc}"
+            )
             return None
 
         genre = response_from_es["_source"]
@@ -41,18 +48,22 @@ class GenreService:
         return Genre(**genre)
 
     async def get_genres(self, page_number: int, page_size: int) -> List[Genre] | None:
-        """ Получение списка жанров из поисковой системы или кеша """
+        """Получение списка жанров из поисковой системы или кеша"""
 
-        genres = await self.get_all_genres_from_elastic(page_size=page_size, page_number=page_number)
+        genres = await self.get_all_genres_from_elastic(
+            page_size=page_size, page_number=page_number
+        )
 
         return genres
 
     async def get_genre_name(self, genre: uuid.UUID = None) -> str | None:
-        """ Получение названия жанра по переданному uuid жанра """
+        """Получение названия жанра по переданному uuid жанра"""
 
         if genre:
             try:
-                genre_result = await self.elastic.get(index=self.index_name, id=str(genre))
+                genre_result = await self.elastic.get(
+                    index=self.index_name, id=str(genre)
+                )
                 return genre_result["_source"]["name"]
             except NotFoundError as e:
                 a_api_logger.error(f"Жанр не найден: {e}")
@@ -80,8 +91,10 @@ class GenreService:
                 detail=f"Переданный жанр не найден: {e}",
             )
 
-    async def get_all_genres_from_elastic(self, page_size: int, page_number: int) -> List[Genre] | None:
-        """ Получение списка жанров из поисковой системы """
+    async def get_all_genres_from_elastic(
+        self, page_size: int, page_number: int
+    ) -> List[Genre] | None:
+        """Получение списка жанров из поисковой системы"""
 
         query = await self.construct_query_for_genres_list(page_size, page_number)
 
@@ -98,8 +111,10 @@ class GenreService:
 
         return genres
 
-    async def construct_query_for_genres_list(self, page_size: int, page_number: int) -> dict:
-        """ Получение запроса для выборки жанров из поисковой системы """
+    async def construct_query_for_genres_list(
+        self, page_size: int, page_number: int
+    ) -> dict:
+        """Получение запроса для выборки жанров из поисковой системы"""
 
         query = {
             "query": {"match_all": {}},
@@ -109,8 +124,10 @@ class GenreService:
 
         return query
 
-    async def parse_result_w_genres_list(self, es_response: ObjectApiResponse) -> List[Genre] | None:
-        """ Парсинг результата поиска жанров """
+    async def parse_result_w_genres_list(
+        self, es_response: ObjectApiResponse
+    ) -> List[Genre] | None:
+        """Парсинг результата поиска жанров"""
 
         hits = es_response.get("hits")
         if not hits:
@@ -120,7 +137,7 @@ class GenreService:
         total = es_response["hits"]["total"]["value"]
         a_api_logger.info(f"Найдено {total} жанров")
 
-        genres = [Genre(**doc['_source']) for doc in hits.get('hits', [])]
+        genres = [Genre(**doc["_source"]) for doc in hits.get("hits", [])]
 
         return genres
 
