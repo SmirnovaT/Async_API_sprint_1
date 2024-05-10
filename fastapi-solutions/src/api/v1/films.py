@@ -1,13 +1,15 @@
 from http import HTTPStatus
-from typing import Optional, List
+from typing import List
 import uuid
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from src.core.logger import a_api_logger
 from src.models.film import FilmBase
+from src.models.genre import Genre
 from src.models.person import Person
 from src.services.film import FilmService, get_film_service
+from src.utils.pagination import Paginator
 
 router = APIRouter()
 
@@ -15,8 +17,9 @@ router = APIRouter()
 class Film(BaseModel):
     uuid: uuid.UUID
     title: str
-    imdb_rating: Optional[float]
+    imdb_rating: float | None
     description: str
+    genres: List[Genre]
     actors: List[Person]
     writers: List[Person]
     directors: List[Person]
@@ -46,19 +49,18 @@ async def film_details(
 class Films(BaseModel):
     uuid: uuid.UUID
     title: str
-    imdb_rating: Optional[float]
+    imdb_rating: float | None
 
 
 @router.get("/", response_model=List[Films], summary="Получение всех фильмов")
 async def films(
     genre: uuid.UUID = None,
     sort: str = "-imdb_rating",
-    page_size: int = 10,
-    page_number: int = 1,
+    paginated_params: Paginator = Depends(),
     film_service: FilmService = Depends(get_film_service),
 ) -> List[FilmBase]:
     return await film_service.get_all_films_from_elastic(
-        genre=genre, sort=sort, page_size=page_size, page_number=page_number
+        genre, sort, paginated_params.page_number, paginated_params.page_size
     )
 
 
@@ -75,3 +77,23 @@ async def similar_films(
         a_api_logger.error("Фильм не найден")
         raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="Фильм не найден")
     return films
+
+
+@router.get(
+    "/search/", response_model=List[Films], summary="Полнотекстовый поиск фильмов"
+)
+async def search_film(
+    search: str,
+    paginated_params: Paginator = Depends(),
+    film_service: FilmService = Depends(get_film_service),
+) -> List[Films]:
+    films = await film_service.search_film(
+        search, paginated_params.page_number, paginated_params.page_size
+    )
+    if len(films) > 0:
+        return films
+    else:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND,
+            detail=f"Не найдено ни одного фильма",
+        )

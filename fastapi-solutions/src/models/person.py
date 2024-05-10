@@ -1,6 +1,7 @@
 from orjson import orjson
 from pydantic import BaseModel
-from src.shared.orjson_dumps import orjson_dumps
+
+from src.utils.orjson_dumps import orjson_dumps
 
 
 class Person(BaseModel):
