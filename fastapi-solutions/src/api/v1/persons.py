@@ -1,7 +1,7 @@
 from typing import List
 import uuid as uuid
 from http import HTTPStatus
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException
 
 from src.services.person import PersonService, get_person_service
