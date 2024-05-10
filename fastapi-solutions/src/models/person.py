@@ -12,6 +12,7 @@ class Person(BaseModel):
     full_name: str
 
     class Config:
+        populate_by_name = True
         json_loads = orjson.loads
         json_dumps = orjson_dumps
 

@@ -14,7 +14,9 @@ from src.models.person import PersonWithFilms, PersonFilm, PersonFilmWithRating
 
 
 class PersonService:
-    def __init__(self, cache: Redis, elastic: AsyncElasticsearch, index_name: str = "persons"):
+    def __init__(
+        self, cache: Redis, elastic: AsyncElasticsearch, index_name: str = "persons"
+    ):
         self.index_name = index_name
         self.cache = CacheService(cache, self.index_name)
         self.elastic = elastic
@@ -70,7 +72,9 @@ class PersonService:
         return query
 
     async def get_only_person_films(self, person_id: uuid) -> PersonWithFilms | None:
-        cache_key = await self.cache.cache_key_generation(person_uuid=person_id, movie="movie")
+        cache_key = await self.cache.cache_key_generation(
+            person_uuid=person_id, movie="movie"
+        )
         person_films = await self.cache.get(cache_key)
 
         if not person_films:

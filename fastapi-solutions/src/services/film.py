@@ -10,7 +10,7 @@ from redis.asyncio import Redis
 from src.core.logger import a_api_logger
 from src.db.elastic import get_elastic
 from src.db.cache import get_redis, CacheService
-from src.models.film import FullFilm, Genre, FilmBase, FilmBaseForCache
+from src.models.film import FullFilm, Genre, FilmBase
 from src.models.person import Person
 from src.services.genre import GenreService, get_genre_service
 
@@ -46,7 +46,6 @@ class FilmService:
 
             return film
 
-        # TODO: convert data after Redis
         film = FullFilm(**film)
 
         return film
@@ -88,11 +87,13 @@ class FilmService:
             for person in person_data
         ]
 
-    async def get_similar_films(self, film_id: str) -> List[FilmBase] | List[FilmBaseForCache] | None:
+    async def get_similar_films(self, film_id: str) -> List[FilmBase] | None:
         """Получение списка фильмов, у которых есть хотя бы один такой же жанр,
         как у переданного фильма (film_id)"""
 
-        cache_key = await self.cache.cache_key_generation(film_uuid=film_id, similar="similar")
+        cache_key = await self.cache.cache_key_generation(
+            film_uuid=film_id, similar="similar"
+        )
         cached_film_data = await self.cache.get(cache_key)
 
         if not cached_film_data:
@@ -119,7 +120,7 @@ class FilmService:
 
             return films
 
-        return [FilmBaseForCache(**data) for data in cached_film_data]
+        return [FilmBase(**data) for data in cached_film_data]
 
     async def get_all_films_from_elastic(
         self,
@@ -127,12 +128,15 @@ class FilmService:
         sort: str = "-imdb_rating",
         page_number: int = 1,
         page_size: int = 10,
-    ) -> list[FilmBase] | list[FilmBaseForCache]:
+    ) -> List[FilmBase]:
         """Получение всех фильмов с возможностью фильтрации по uuid жанра.
         По умолчанию остортированы по убыванию imdb_rating"""
 
         cache_key = await self.cache.cache_key_generation(
-            genre=genre, sort=sort, page_number=page_number, page_size=page_size,
+            genre=genre,
+            sort=sort,
+            page_number=page_number,
+            page_size=page_size,
         )
         films = await self.cache.get(cache_key)
 
@@ -154,7 +158,7 @@ class FilmService:
                     detail=f"Произошла непредвиденная ошибка {e}",
                 )
 
-        return [FilmBaseForCache(**data) for data in films]
+        return [FilmBase(**data) for data in films]
 
     async def construct_query(
         self,
