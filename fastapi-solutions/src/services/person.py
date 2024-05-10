@@ -9,32 +9,29 @@ from redis.asyncio import Redis
 
 from src.core.logger import a_api_logger
 from src.db.elastic import get_elastic
-from src.db.cache import get_redis
+from src.db.cache import get_redis, CacheService
 from src.models.person import PersonWithFilms, PersonFilm, PersonFilmWithRating
 
 
 class PersonService:
-    def __init__(self, redis: Redis, elastic: AsyncElasticsearch):
-        self.redis = redis
+    def __init__(self, cache: Redis, elastic: AsyncElasticsearch, index_name: str = "persons"):
+        self.index_name = index_name
+        self.cache = CacheService(cache, self.index_name)
         self.elastic = elastic
 
     async def get_by_id(self, person_id: str) -> Optional[PersonWithFilms]:
-        person = await self._person_from_cache(person_id)
+        cache_key = await self.cache.cache_key_generation(person_uuid=person_id)
+        person = await self.cache.get(cache_key)
+
         if not person:
             person = await self._get_person_from_elastic(person_id)
             if not person:
-                a_api_logger("Not found person")
+                a_api_logger.info("Not found person")
                 return None
-            await self._put_person_to_cache(person_id)
+
+            await self.cache.set(cache_key, person)
+
         return person
-
-    async def _person_from_cache(self, person_id):
-        # ToDo with Redis
-        return None
-
-    async def _put_person_to_cache(self, person_id):
-        # ToDo with Redis
-        return None
 
     async def search_for_a_person(self, query: str, page_number: int, page_size: int):
         try:
@@ -72,22 +69,29 @@ class PersonService:
         }
         return query
 
-    async def get_only_person_films(self, person_id: uuid) -> PersonWithFilms:
-        try:
-            doc = await self.elastic.get(index="persons", id=person_id)
-            result = doc["_source"]
-            films = await self._get_films_for_persons(result["full_name"])
-            person_films = [
-                PersonFilmWithRating(
-                    uuid=film[0],
-                    title=film[1]["title"],
-                    imdb_rating=film[1]["imdb_rating"],
-                )
-                for film in films.items()
-            ]
-        except NotFoundError:
-            a_api_logger("Failed to get person films from elastic!")
-            return None
+    async def get_only_person_films(self, person_id: uuid) -> PersonWithFilms | None:
+        cache_key = await self.cache.cache_key_generation(person_uuid=person_id, movie="movie")
+        person_films = await self.cache.get(cache_key)
+
+        if not person_films:
+            try:
+                doc = await self.elastic.get(index="persons", id=person_id)
+                result = doc["_source"]
+                films = await self._get_films_for_persons(result["full_name"])
+                person_films = [
+                    PersonFilmWithRating(
+                        uuid=film[0],
+                        title=film[1]["title"],
+                        imdb_rating=film[1]["imdb_rating"],
+                    )
+                    for film in films.items()
+                ]
+            except NotFoundError:
+                a_api_logger.error("Failed to get person films from elastic!")
+                return None
+
+            await self.cache.set(cache_key, person_films)
+
         return person_films
 
     async def _get_person_from_elastic(self, person_id: uuid) -> PersonWithFilms | None:
@@ -100,7 +104,7 @@ class PersonService:
                 for film in films.items()
             ]
         except NotFoundError:
-            a_api_logger("Failed to get person from elastic!")
+            a_api_logger.error("Failed to get person from elastic!")
             return None
         return PersonWithFilms(
             uuid=result["id"], full_name=result["full_name"], films=person_films
@@ -142,7 +146,7 @@ class PersonService:
 @lru_cache()
 @lru_cache()
 def get_person_service(
-    redis: Redis = Depends(get_redis),
+    cache: Redis = Depends(get_redis),
     elastic: AsyncElasticsearch = Depends(get_elastic),
 ) -> PersonService:
-    return PersonService(redis, elastic)
+    return PersonService(cache, elastic)

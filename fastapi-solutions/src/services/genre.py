@@ -55,8 +55,6 @@ class GenreService:
 
             await self.cache.set(cache_key, genre)
 
-            return genre
-
         return genre
 
     async def get_genres(self, page_number: int, page_size: int) -> List[Genre] | None:
