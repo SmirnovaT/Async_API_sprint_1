@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException
 
 from src.services.person import PersonService, get_person_service
+from src.utils.pagination import Paginator
 
 router = APIRouter()
 
@@ -29,12 +30,11 @@ class Person(BaseModel):
 @router.get("/search", response_model=List[Person])
 async def person_search(
     query: str,
-    page_number: int,
-    page_size: int,
+    paginated_params: Paginator = Depends(),
     person_service: PersonService = Depends(get_person_service),
 ) -> List[Person]:
     persons_list = await person_service.search_for_a_person(
-        query, page_number, page_size
+        query, paginated_params.page_number, paginated_params.page_size
     )
     return [
         Person(

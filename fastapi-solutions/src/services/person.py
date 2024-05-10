@@ -14,7 +14,9 @@ from src.models.person import PersonWithFilms, PersonFilm, PersonFilmWithRating
 
 
 class PersonService:
-    def __init__(self, cache: Redis, elastic: AsyncElasticsearch, index_name: str = "persons"):
+    def __init__(
+        self, cache: Redis, elastic: AsyncElasticsearch, index_name: str = "persons"
+    ):
         self.index_name = index_name
         self.cache = CacheService(cache, self.index_name)
         self.elastic = elastic
@@ -33,9 +35,11 @@ class PersonService:
 
         return person
 
-    async def search_for_a_person(self, query: str, page_number: int, page_size: int):
+    async def search_for_a_person(
+        self, query: str, page_number: int = 1, page_size: int = 10
+    ):
         try:
-            query = await self._construct_query(query, page_size, page_number)
+            query = await self._construct_query(query, page_number, page_size)
             doc = await self.elastic.search(index="persons", body=query)
             persons_list = []
             for hit in doc["hits"]["hits"]:
@@ -58,8 +62,8 @@ class PersonService:
     async def _construct_query(
         self,
         query: str,
-        page_size: int = 10,
         page_number: int = 1,
+        page_size: int = 10,
     ) -> dict:
         """Создание запроса для выполнения к индексу Elasticsearch"""
         query = {
@@ -70,7 +74,9 @@ class PersonService:
         return query
 
     async def get_only_person_films(self, person_id: uuid) -> PersonWithFilms | None:
-        cache_key = await self.cache.cache_key_generation(person_uuid=person_id, movie="movie")
+        cache_key = await self.cache.cache_key_generation(
+            person_uuid=person_id, movie="movie"
+        )
         person_films = await self.cache.get(cache_key)
 
         if not person_films:
