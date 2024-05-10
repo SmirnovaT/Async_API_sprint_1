@@ -19,6 +19,17 @@ class FilmBase(BaseModel):
         json_dumps = orjson_dumps
 
 
+class FilmBaseForCache(BaseModel):
+    id: str = Field(..., alias="uuid")
+    title: str | None
+    description: str | None
+    imdb_rating: float | None
+
+    class Config:
+        json_loads = orjson.loads
+        json_dumps = orjson_dumps
+
+
 class FullFilm(BaseModel):
     uuid: str = Field(..., alias="id")
     title: str | None

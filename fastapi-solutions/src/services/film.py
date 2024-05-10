@@ -9,12 +9,10 @@ from redis.asyncio import Redis
 
 from src.core.logger import a_api_logger
 from src.db.elastic import get_elastic
-from src.db.cache import get_redis
-from src.models.film import FullFilm, Genre, FilmBase
+from src.db.cache import get_redis, CacheService
+from src.models.film import FullFilm, Genre, FilmBase, FilmBaseForCache
 from src.models.person import Person
 from src.services.genre import GenreService, get_genre_service
-
-FILM_CACHE_EXPIRE_IN_SECONDS = 60 * 5  # 5 минут
 
 
 class FilmService:
@@ -22,23 +20,35 @@ class FilmService:
 
     def __init__(
         self,
-        redis: Redis,
+        cache: Redis,
         elastic: AsyncElasticsearch,
         genre_service: GenreService,
         index_name: str = "movies",
     ):
-        self.redis = redis
+        self.index_name = index_name
+        self.cache = CacheService(cache, self.index_name)
         self.elastic = elastic
         self.genre_service = genre_service
-        self.index_name = index_name
 
     async def get_film_details(self, film_id: str) -> FullFilm | None:
         """Получение полной информации по фильму"""
 
-        film_data = await self.get_film_from_elastic(film_id)
-        if not film_data:
-            return None
-        film = await self.get_full_info(film_data)
+        cache_key = await self.cache.cache_key_generation(film_uuid=film_id)
+        film = await self.cache.get(cache_key)
+
+        if not film:
+            film_data = await self.get_film_from_elastic(film_id)
+            if not film_data:
+                return None
+            film = await self.get_full_info(film_data)
+
+            await self.cache.set(cache_key, film)
+
+            return film
+
+        # TODO: convert data after Redis
+        film = FullFilm(**film)
+
         return film
 
     async def get_film_from_elastic(self, film_id: str) -> dict | None:
@@ -78,29 +88,38 @@ class FilmService:
             for person in person_data
         ]
 
-    async def get_similar_films(self, film_id: str) -> List[FilmBase] | None:
+    async def get_similar_films(self, film_id: str) -> List[FilmBase] | List[FilmBaseForCache] | None:
         """Получение списка фильмов, у которых есть хотя бы один такой же жанр,
         как у переданного фильма (film_id)"""
 
-        film_data = await self.get_film_from_elastic(film_id)
-        if not film_data:
-            return None
+        cache_key = await self.cache.cache_key_generation(film_uuid=film_id, similar="similar")
+        cached_film_data = await self.cache.get(cache_key)
 
-        genres = film_data["genres"]
-        query = {
-            "query": {
-                "bool": {
-                    "should": [{"match": {"genres": genre}} for genre in genres],
-                    "minimum_should_match": 1,
+        if not cached_film_data:
+            film_data = await self.get_film_from_elastic(film_id)
+            if not film_data:
+                return None
+
+            genres = film_data["genres"]
+            query = {
+                "query": {
+                    "bool": {
+                        "should": [{"match": {"genres": genre}} for genre in genres],
+                        "minimum_should_match": 1,
+                    }
                 }
             }
-        }
-        result = await self.elastic.search(index=self.index_name, body=query)
+            result = await self.elastic.search(index=self.index_name, body=query)
 
-        films = [
-            parse_obj_as(FilmBase, hit["_source"]) for hit in result["hits"]["hits"]
-        ]
-        return films
+            films = [
+                parse_obj_as(FilmBase, hit["_source"]) for hit in result["hits"]["hits"]
+            ]
+
+            await self.cache.set(cache_key, films)
+
+            return films
+
+        return [FilmBaseForCache(**data) for data in cached_film_data]
 
     async def get_all_films_from_elastic(
         self,
@@ -108,22 +127,34 @@ class FilmService:
         sort: str = "-imdb_rating",
         page_number: int = 1,
         page_size: int = 10,
-    ) -> list[FilmBase]:
+    ) -> list[FilmBase] | list[FilmBaseForCache]:
         """Получение всех фильмов с возможностью фильтрации по uuid жанра.
         По умолчанию остортированы по убыванию imdb_rating"""
 
-        query = await self.construct_query(genre, sort, page_number, page_size)
+        cache_key = await self.cache.cache_key_generation(
+            genre="kkk", sort=sort, page_number=page_number, page_size=page_size,
+        )
+        films = await self.cache.get(cache_key)
 
-        try:
-            result = await self.elastic.search(index=self.index_name, body=query)
-            films = [FilmBase(**doc["_source"]) for doc in result["hits"]["hits"]]
-            return films
-        except Exception as e:
-            a_api_logger.error(f"Произошла непредвиденная ошибка:{e}")
-            raise HTTPException(
-                status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
-                detail=f"Произошла непредвиденная ошибка {e}",
-            )
+        if not films:
+            query = await self.construct_query(genre, sort, page_number, page_size)
+
+            try:
+                result = await self.elastic.search(index=self.index_name, body=query)
+                films = [FilmBase(**doc["_source"]) for doc in result["hits"]["hits"]]
+
+                if films:
+                    await self.cache.set(cache_key, films)
+
+                return films
+            except Exception as e:
+                a_api_logger.error(f"Произошла непредвиденная ошибка:{e}")
+                raise HTTPException(
+                    status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
+                    detail=f"Произошла непредвиденная ошибка {e}",
+                )
+
+        return [FilmBaseForCache(**data) for data in films]
 
     async def construct_query(
         self,
@@ -180,29 +211,11 @@ class FilmService:
         }
         return query
 
-    async def _film_from_cache(self, film_id: str) -> FilmBase | None:
-        # Пытаемся получить данные о фильме из кеша, используя команду get
-        # https://redis.io/commands/get/
-        data = await self.redis.get(film_id)
-        if not data:
-            return None
-
-        # pydantic предоставляет удобное API для создания объекта моделей из json
-        film = FilmBase.parse_raw(data)
-        return film
-
-    async def _put_film_to_cache(self, film: FilmBase):
-        # Сохраняем данные о фильме, используя команду set
-        # Выставляем время жизни кеша — 5 минут
-        # https://redis.io/commands/set/
-        # pydantic позволяет сериализовать модель в json
-        await self.redis.set(film.id, film.json(), FILM_CACHE_EXPIRE_IN_SECONDS)
-
 
 @lru_cache()
 def get_film_service(
-    redis: Redis = Depends(get_redis),
+    cache: Redis = Depends(get_redis),
     elastic: AsyncElasticsearch = Depends(get_elastic),
     genre_service: GenreService = Depends(get_genre_service),
 ) -> FilmService:
-    return FilmService(redis, elastic, genre_service)
+    return FilmService(cache, elastic, genre_service)
