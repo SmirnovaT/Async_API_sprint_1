@@ -10,7 +10,7 @@ from redis.asyncio import Redis
 
 from src.core.logger import a_api_logger
 from src.db.elastic import get_elastic
-from src.db.redis import get_redis
+from src.db.cache import get_redis, CacheService
 from src.models.genre import Genre
 
 
@@ -18,41 +18,65 @@ class GenreService:
     """Класс, который позволяет вернуть данные о жанрах"""
 
     def __init__(
-        self, redis: Redis, elastic: AsyncElasticsearch, index_name: str = "genres"
+        self, cache: Redis, elastic: AsyncElasticsearch, index_name: str = "genres"
     ):
-        self.redis = redis
-        self.elastic = elastic
         self.index_name = index_name
+        self.cache = CacheService(cache, self.index_name)
+        self.elastic = elastic
 
     async def get_genre(self, genre_uuid: str) -> Genre | None:
         """Получение информации по конкретному жанру по его uuid"""
 
-        try:
-            response_from_es = await self.elastic.get(
-                index=self.index_name, id=genre_uuid
-            )
-        except NotFoundError as nf_err:
-            a_api_logger.error(f"Жанр (uuid: {genre_uuid}) не найден, ошибка: {nf_err}")
-            return None
-        except Exception as gen_exc:
-            a_api_logger.error(
-                f"Ошибка в процессе поиска жанра (uuid: {genre_uuid}): {gen_exc}"
-            )
-            return None
+        cache_key = await self.cache.cache_key_generation(genre_uuid=genre_uuid)
+        genre = await self.cache.get(cache_key)
 
-        genre = response_from_es["_source"]
         if not genre:
-            a_api_logger.info(f"Жанр (uuid: {genre_uuid}) не найден")
-            return None
+            try:
+                response_from_es = await self.elastic.get(
+                    index=self.index_name, id=genre_uuid
+                )
+            except NotFoundError as nf_err:
+                a_api_logger.error(
+                    f"Жанр (uuid: {genre_uuid}) не найден, ошибка: {nf_err}"
+                )
+                return None
+            except Exception as gen_exc:
+                a_api_logger.error(
+                    f"Ошибка в процессе поиска жанра (uuid: {genre_uuid}): {gen_exc}"
+                )
+                return None
 
-        return Genre(**genre)
+            genre = response_from_es["_source"]
+            if not genre:
+                a_api_logger.info(f"Жанр (uuid: {genre_uuid}) не найден")
+                return None
+
+            genre = Genre(**genre)
+
+            await self.cache.set(cache_key, genre)
+
+            return genre
+
+        return genre
 
     async def get_genres(self, page_number: int, page_size: int) -> List[Genre] | None:
         """Получение списка жанров из поисковой системы или кеша"""
 
-        genres = await self.get_all_genres_from_elastic(
-            page_size=page_size, page_number=page_number
+        cache_key = await self.cache.cache_key_generation(
+            page_number=page_number,
+            page_size=page_size,
         )
+        genres = await self.cache.get(cache_key)
+
+        if not genres:
+            genres = await self.get_all_genres_from_elastic(
+                page_size=page_size, page_number=page_number
+            )
+
+            if not genres:
+                return None
+
+            await self.cache.set(cache_key, genres)
 
         return genres
 
@@ -144,7 +168,7 @@ class GenreService:
 
 @lru_cache()
 def get_genre_service(
-    redis: Redis = Depends(get_redis),
+    cache: Redis = Depends(get_redis),
     elastic: AsyncElasticsearch = Depends(get_elastic),
 ) -> GenreService:
-    return GenreService(redis, elastic)
+    return GenreService(cache, elastic)

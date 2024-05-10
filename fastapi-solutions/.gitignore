@@ -87,7 +87,7 @@ test.py
 backend.tf
 secrets.tfvars
 kube_config
-.gitignore
 terraform.tfstate*
 .terraform/
 *.hcl
+*.pyc
