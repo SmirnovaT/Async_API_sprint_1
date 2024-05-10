@@ -32,3 +32,13 @@ class PersonWithFilms(BaseModel):
     class Config:
         json_loads = orjson.loads
         json_dumps = orjson_dumps
+
+
+class PersonFilmWithRating(BaseModel):
+    uuid: uuid.UUID
+    title: str
+    imdb_rating: float
+
+    class Config:
+        json_loads = orjson.loads
+        json_dumps = orjson_dumps

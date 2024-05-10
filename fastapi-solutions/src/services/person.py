@@ -1,3 +1,4 @@
+import uuid
 from functools import lru_cache
 from typing import Optional
 
@@ -9,7 +10,7 @@ from redis.asyncio import Redis
 from src.core.logger import a_api_logger
 from src.db.elastic import get_elastic
 from src.db.redis import get_redis
-from src.models.person import PersonWithFilms, PersonFilm
+from src.models.person import PersonWithFilms, PersonFilm, PersonFilmWithRating
 
 
 class PersonService:
@@ -41,9 +42,10 @@ class PersonService:
             doc = await self.elastic.search(index="persons", body=query)
             persons_list = []
             for hit in doc["hits"]["hits"]:
-                films = await self.get_films_for_persons(hit["_source"]["full_name"])
+                films = await self._get_films_for_persons(hit["_source"]["full_name"])
                 person_films = [
-                    PersonFilm(uuid=film[0], roles=film[1]) for film in films.items()
+                    PersonFilm(uuid=film[0], roles=film[1]["roles"])
+                    for film in films.items()
                 ]
                 persons_list.append(
                     PersonWithFilms(
@@ -70,13 +72,32 @@ class PersonService:
         }
         return query
 
-    async def _get_person_from_elastic(self, person_id):
+    async def get_only_person_films(self, person_id: uuid) -> PersonWithFilms:
         try:
             doc = await self.elastic.get(index="persons", id=person_id)
             result = doc["_source"]
-            films = await self.get_films_for_persons(result["full_name"])
+            films = await self._get_films_for_persons(result["full_name"])
             person_films = [
-                PersonFilm(uuid=film[0], roles=film[1]) for film in films.items()
+                PersonFilmWithRating(
+                    uuid=film[0],
+                    title=film[1]["title"],
+                    imdb_rating=film[1]["imdb_rating"],
+                )
+                for film in films.items()
+            ]
+        except NotFoundError:
+            a_api_logger("Failed to get person films from elastic!")
+            return None
+        return person_films
+
+    async def _get_person_from_elastic(self, person_id: uuid) -> PersonWithFilms | None:
+        try:
+            doc = await self.elastic.get(index="persons", id=person_id)
+            result = doc["_source"]
+            films = await self._get_films_for_persons(result["full_name"])
+            person_films = [
+                PersonFilm(uuid=film[0], roles=film[1]["roles"])
+                for film in films.items()
             ]
         except NotFoundError:
             a_api_logger("Failed to get person from elastic!")
@@ -85,7 +106,7 @@ class PersonService:
             uuid=result["id"], full_name=result["full_name"], films=person_films
         )
 
-    async def get_films_for_persons(self, person_name):
+    async def _get_films_for_persons(self, person_name: str) -> dict | None:
         ROLES = {
             "directors_names": "director",
             "actors_names": "actor",
@@ -107,9 +128,12 @@ class PersonService:
                     for film in result["hits"]["hits"]:
                         film = film["_source"]
                         if film["id"] not in films:
-                            films[film["id"]] = [ROLES[role]]
+                            films[film["id"]] = {}
+                            films[film["id"]]["roles"] = [ROLES[role]]
+                            films[film["id"]]["title"] = film["title"]
+                            films[film["id"]]["imdb_rating"] = film["imdb_rating"]
                         else:
-                            films[film["id"]].append(ROLES[role])
+                            films[film["id"]]["roles"].append(ROLES[role])
             return films
         except NotFoundError:
             return None

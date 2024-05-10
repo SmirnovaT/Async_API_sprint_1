@@ -14,6 +14,12 @@ class PersonFilm(BaseModel):
     roles: List[str]
 
 
+class PersonFilmWithRating(BaseModel):
+    uuid: uuid.UUID
+    title: str
+    imdb_rating: float
+
+
 class Person(BaseModel):
     uuid: uuid.UUID
     full_name: str
@@ -54,3 +60,21 @@ async def person(
         )
 
     return person
+
+
+@router.get(
+    "/{person_id}/film/",
+    response_model=List[PersonFilmWithRating],
+    summary="Получение фильмов персоны по ее uuid",
+    description="Возвращает фильмы по id персоны",
+)
+async def person_films(
+    person_id: str, person_service: PersonService = Depends(get_person_service)
+) -> List[PersonFilmWithRating]:
+    films = await person_service.get_only_person_films(person_id)
+    if not films:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Фильмы персоны не найдены"
+        )
+
+    return films
