@@ -2,8 +2,6 @@ services:
   service:
     build: .
     restart: always
-    ports:
-      - "127.0.0.1:8000:8000"
     depends_on:
       search:
         condition: service_healthy
@@ -35,6 +33,15 @@ services:
      - ./redis-data:/var/lib/redis
     networks:
       - moviesnetwork
+
+  nginx:
+      image: nginx:1.25.4
+      restart: always
+      volumes:
+        - .nginx.conf:/etc/nginx/conf:ro
+      depends_on:
+        - service
+
 
 networks:
   moviesnetwork:
