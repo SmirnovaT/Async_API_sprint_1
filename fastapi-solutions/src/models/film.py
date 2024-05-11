@@ -1,5 +1,3 @@
-import orjson
-
 from pydantic import Field
 
 from src.models.model_config import BaseOrjsonModel
@@ -23,4 +21,3 @@ class FullFilm(BaseOrjsonModel):
     actors: list[Person]
     writers: list[Person]
     directors: list[Person]
-
