@@ -1,45 +1,30 @@
 import uuid
 
-from orjson import orjson
 from pydantic import BaseModel
 
-from src.utils.orjson_dumps import orjson_dumps
+from src.models.model_config import BaseOrjsonModel
 
 
-class Person(BaseModel):
+class Person(BaseOrjsonModel):
     uuid: str
     full_name: str
 
-    class Config:
-        populate_by_name = True
-        json_loads = orjson.loads
-        json_dumps = orjson_dumps
 
-
-class PersonFilm(BaseModel):
+class PersonFilm(BaseOrjsonModel):
     uuid: uuid.UUID
     roles: list[str]
 
-    class Config:
-        json_loads = orjson.loads
-        json_dumps = orjson_dumps
 
+class PersonWithFilms(Person):
+    films: list[PersonFilm]
 
 class PersonWithFilms(BaseModel):
     uuid: str
     full_name: str
     films: list[PersonFilm]
 
-    class Config:
-        json_loads = orjson.loads
-        json_dumps = orjson_dumps
 
-
-class PersonFilmWithRating(BaseModel):
+class PersonFilmWithRating(BaseOrjsonModel):
     uuid: uuid.UUID
     title: str
     imdb_rating: float
-
-    class Config:
-        json_loads = orjson.loads
-        json_dumps = orjson_dumps
