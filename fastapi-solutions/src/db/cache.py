@@ -60,11 +60,11 @@ class CacheService:
                 await self.cache.set(
                     key,
                     orjson_dumps([item.json() for item in value], default=list),
-                    ex=config.CACHE_EXPIRE_IN_SECONDS,
+                    ex=config.cache_expire_in_seconds,
                 )
             else:
                 await self.cache.set(
-                    key, value.json(), ex=config.CACHE_EXPIRE_IN_SECONDS
+                    key, value.json(), ex=config.cache_expire_in_seconds
                 )
         except Exception as exc:
             a_api_logger.error(f"Ошибка при записи по ключу {key} в кеш: {exc}")

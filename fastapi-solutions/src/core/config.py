@@ -12,19 +12,19 @@ logging_config.dictConfig(LOGGING)
 class Settings(BaseSettings):
     """Конфигурация проекта"""
 
-    PROJECT_NAME: str = "movies"
+    project_name: str = "movies"
 
-    REDIS_HOST: str = "127.0.0.1"
-    REDIS_PORT: int = 6379
-    REDIS_USER: str = "app"
-    REDIS_PASSWORD: str
-    CACHE_EXPIRE_IN_SECONDS: int = 300
+    redis_host: str = "127.0.0.1"
+    redis_port: int = 6379
+    redis_user: str = "app"
+    redis_password: str
+    cache_expire_in_seconds: int = 300
 
-    ELASTIC_HOST: str = "127.0.0.1"
-    ELASTIC_PORT: int = 9200
+    elastic_host: str = "127.0.0.1"
+    elastic_port: int = 9200
 
-    PAGE_SIZE: int = 10
-    PAGE_NUMBER: int = 1
+    page_size: int = 10
+    page_number: int = 1
 
     model_config = SettingsConfigDict(
         env_file=Path(__file__).resolve().parent.parent.parent / ".env"

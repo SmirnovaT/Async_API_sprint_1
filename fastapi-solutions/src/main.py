@@ -14,9 +14,9 @@ from src.db import cache
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    cache.redis = Redis(host=config.REDIS_HOST, port=config.REDIS_PORT)
+    cache.redis = Redis(host=config.redis_host, port=config.redis_port)
     elastic.es = AsyncElasticsearch(
-        hosts=[f"http://{config.ELASTIC_HOST}:{config.ELASTIC_PORT}"]
+        hosts=[f"http://{config.elastic_host}:{config.elastic_port}"]
     )
     yield
     await cache.redis.close()
@@ -24,7 +24,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title=config.PROJECT_NAME,
+    title=config.project_name,
     docs_url="/api/openapi",
     openapi_url="/api/openapi.json",
     default_response_class=ORJSONResponse,
