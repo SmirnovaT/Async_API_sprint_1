@@ -13,7 +13,7 @@ class PersonFilm(BaseOrjsonModel):
     roles: list[str]
 
 
-class PersonWithFilms(BaseOrjsonModel):
+class PersonWithFilms(Person):
     films: list[PersonFilm]
 
 
