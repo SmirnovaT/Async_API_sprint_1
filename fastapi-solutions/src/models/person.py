@@ -2,7 +2,6 @@ import uuid
 
 from orjson import orjson
 from pydantic import BaseModel
-from typing import List
 
 from src.utils.orjson_dumps import orjson_dumps
 
@@ -19,7 +18,7 @@ class Person(BaseModel):
 
 class PersonFilm(BaseModel):
     uuid: uuid.UUID
-    roles: List[str]
+    roles: list[str]
 
     class Config:
         json_loads = orjson.loads
@@ -29,7 +28,7 @@ class PersonFilm(BaseModel):
 class PersonWithFilms(BaseModel):
     uuid: str
     full_name: str
-    films: List[PersonFilm]
+    films: list[PersonFilm]
 
     class Config:
         json_loads = orjson.loads

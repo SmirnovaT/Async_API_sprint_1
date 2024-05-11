@@ -1,5 +1,4 @@
 from http import HTTPStatus
-from typing import List
 import uuid
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -19,10 +18,10 @@ class Film(BaseModel):
     title: str
     imdb_rating: float | None
     description: str
-    genres: List[Genre]
-    actors: List[Person]
-    writers: List[Person]
-    directors: List[Person]
+    genres: list[Genre]
+    actors: list[Person]
+    writers: list[Person]
+    directors: list[Person]
 
 
 @router.get("/{film_id}", response_model=Film, summary="Полная информация по фильму")
@@ -52,13 +51,13 @@ class Films(BaseModel):
     imdb_rating: float | None
 
 
-@router.get("/", response_model=List[Films], summary="Получение всех фильмов")
+@router.get("/", response_model=list[Films], summary="Получение всех фильмов")
 async def films(
     genre: uuid.UUID = None,
     sort: str = "-imdb_rating",
     paginated_params: Paginator = Depends(),
     film_service: FilmService = Depends(get_film_service),
-) -> List[FilmBase]:
+) -> list[FilmBase]:
     return await film_service.get_all_films_from_elastic(
         genre, sort, paginated_params.page_number, paginated_params.page_size
     )
@@ -66,12 +65,12 @@ async def films(
 
 @router.get(
     "/{film_id}/similar",
-    response_model=List[FilmBase],
+    response_model=list[FilmBase],
     summary="Похожие фильмы (с такими же жанрами)",
 )
 async def similar_films(
     film_id: str, film_service: FilmService = Depends(get_film_service)
-) -> List[FilmBase]:
+) -> list[FilmBase]:
     films = await film_service.get_similar_films(film_id)
     if not films:
         a_api_logger.error("Фильм не найден")
@@ -80,13 +79,13 @@ async def similar_films(
 
 
 @router.get(
-    "/search/", response_model=List[Films], summary="Полнотекстовый поиск фильмов"
+    "/search/", response_model=list[Films], summary="Полнотекстовый поиск фильмов"
 )
 async def search_film(
     search: str,
     paginated_params: Paginator = Depends(),
     film_service: FilmService = Depends(get_film_service),
-) -> List[Films] | None:
+) -> list[Films] | None:
     films = await film_service.search_film(
         search, paginated_params.page_number, paginated_params.page_size
     )

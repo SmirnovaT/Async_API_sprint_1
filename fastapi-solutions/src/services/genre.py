@@ -1,7 +1,6 @@
 import uuid
 from functools import lru_cache
 from http import HTTPStatus
-from typing import List
 
 from elastic_transport import ObjectApiResponse
 from elasticsearch import AsyncElasticsearch, NotFoundError
@@ -57,7 +56,7 @@ class GenreService:
 
         return genre
 
-    async def get_genres(self, page_number: int, page_size: int) -> List[Genre] | None:
+    async def get_genres(self, page_number: int, page_size: int) -> list[Genre] | None:
         """Получение списка жанров из поисковой системы или кеша"""
 
         cache_key = await self.cache.cache_key_generation(
@@ -115,7 +114,7 @@ class GenreService:
 
     async def get_all_genres_from_elastic(
         self, page_size: int, page_number: int
-    ) -> List[Genre] | None:
+    ) -> list[Genre] | None:
         """Получение списка жанров из поисковой системы"""
 
         query = await self.construct_query_for_genres_list(page_size, page_number)
@@ -148,7 +147,7 @@ class GenreService:
 
     async def parse_result_w_genres_list(
         self, es_response: ObjectApiResponse
-    ) -> List[Genre] | None:
+    ) -> list[Genre] | None:
         """Парсинг результата поиска жанров"""
 
         hits = es_response.get("hits")

@@ -1,7 +1,6 @@
 import uuid
 from functools import lru_cache
 from http import HTTPStatus
-from typing import List
 from pydantic import parse_obj_as
 from elasticsearch import AsyncElasticsearch, NotFoundError
 from fastapi import Depends, HTTPException
@@ -87,7 +86,7 @@ class FilmService:
             for person in person_data
         ]
 
-    async def get_similar_films(self, film_id: str) -> List[FilmBase] | None:
+    async def get_similar_films(self, film_id: str) -> list[FilmBase] | None:
         """Получение списка фильмов, у которых есть хотя бы один такой же жанр,
         как у переданного фильма (film_id)"""
 
@@ -128,7 +127,7 @@ class FilmService:
         sort: str = "-imdb_rating",
         page_number: int = 1,
         page_size: int = 10,
-    ) -> List[FilmBase]:
+    ) -> list[FilmBase]:
         """Получение всех фильмов с возможностью фильтрации по uuid жанра.
         По умолчанию остортированы по убыванию imdb_rating"""
 
@@ -185,7 +184,7 @@ class FilmService:
 
     async def search_film(
         self, search: str, page_number: int, page_size: int
-    ) -> List[FilmBase] | None:
+    ) -> list[FilmBase] | None:
         """Поиск фильмов"""
 
         query = await self.construct_query_for_search(search, page_number, page_size)

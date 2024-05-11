@@ -1,6 +1,5 @@
 import uuid
 from http import HTTPStatus
-from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -18,14 +17,14 @@ class Genre(BaseModel):
 
 @router.get(
     "/",
-    response_model=List[Genre],
+    response_model=list[Genre],
     summary="Получение всех жанров",
     description="Возвращает список всех жанров",
 )
 async def genres(
     paginated_params: Paginator = Depends(),
     genre_service: GenreService = Depends(get_genre_service),
-) -> List[Genre]:
+) -> list[Genre]:
     genres_list = await genre_service.get_genres(
         paginated_params.page_number, paginated_params.page_size
     )

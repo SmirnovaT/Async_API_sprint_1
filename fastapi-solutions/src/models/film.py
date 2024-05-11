@@ -1,4 +1,3 @@
-from typing import List
 import orjson
 
 from pydantic import BaseModel, Field
@@ -25,10 +24,10 @@ class FullFilm(BaseModel):
     title: str | None
     description: str | None
     imdb_rating: float | None
-    genres: List[Genre]
-    actors: List[Person]
-    writers: List[Person]
-    directors: List[Person]
+    genres: list[Genre]
+    actors: list[Person]
+    writers: list[Person]
+    directors: list[Person]
 
     class Config:
         populate_by_name = True
