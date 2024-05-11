@@ -18,4 +18,4 @@ RUN groupadd -r web && useradd -d /opt/app-r -g web web \
 USER web
 
 
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["gunicorn", "src.main:app", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000"]

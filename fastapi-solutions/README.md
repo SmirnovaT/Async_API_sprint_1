@@ -39,5 +39,5 @@ docker-compose up --build -d
 
 7. docker run -p 6379:6379 redis:7.2.4-alpine
  
-8. uvicorn src.main:app --host 0.0.0.0 --port 8000
+8. gunicorn src.main:app -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
 ```

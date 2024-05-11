@@ -25,7 +25,6 @@ class CacheService:
         """Генерация ключа для кеширования"""
 
         sorted_kwargs = dict(sorted(kwargs.items()))
-
         key_strings = [self.index]
 
         for key, value in sorted_kwargs.items():
@@ -51,8 +50,7 @@ class CacheService:
 
         if isinstance(data := orjson.loads(data), list):
             return [orjson.loads(item) for item in data]
-        else:
-            return data
+        return data
 
     async def set(self, key, value) -> None:
         """Сохранение данных в кеш"""
