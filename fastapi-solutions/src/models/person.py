@@ -1,6 +1,6 @@
 import uuid
 
-from typing import List
+from pydantic import BaseModel
 
 from src.models.model_config import BaseOrjsonModel
 
@@ -12,11 +12,16 @@ class Person(BaseOrjsonModel):
 
 class PersonFilm(BaseOrjsonModel):
     uuid: uuid.UUID
-    roles: List[str]
+    roles: list[str]
 
 
 class PersonWithFilms(Person):
-    films: List[PersonFilm]
+    films: list[PersonFilm]
+
+class PersonWithFilms(BaseModel):
+    uuid: str
+    full_name: str
+    films: list[PersonFilm]
 
 
 class PersonFilmWithRating(BaseOrjsonModel):

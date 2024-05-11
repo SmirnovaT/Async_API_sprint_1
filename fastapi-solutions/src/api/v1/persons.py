@@ -1,4 +1,3 @@
-from typing import List
 import uuid as uuid
 from http import HTTPStatus
 from pydantic import BaseModel
@@ -12,7 +11,7 @@ router = APIRouter()
 
 class PersonFilm(BaseModel):
     uuid: uuid.UUID
-    roles: List[str]
+    roles: list[str]
 
 
 class PersonFilmWithRating(BaseModel):
@@ -24,15 +23,15 @@ class PersonFilmWithRating(BaseModel):
 class Person(BaseModel):
     uuid: uuid.UUID
     full_name: str
-    films: List[PersonFilm] | None
+    films: list[PersonFilm] | None
 
 
-@router.get("/search", response_model=List[Person])
+@router.get("/search", response_model=list[Person])
 async def person_search(
     query: str,
     paginated_params: Paginator = Depends(),
     person_service: PersonService = Depends(get_person_service),
-) -> List[Person]:
+) -> list[Person]:
     persons_list = await person_service.search_for_a_person(
         query, paginated_params.page_number, paginated_params.page_size
     )
@@ -64,13 +63,13 @@ async def person(
 
 @router.get(
     "/{person_id}/film/",
-    response_model=List[PersonFilmWithRating],
+    response_model=list[PersonFilmWithRating],
     summary="Получение фильмов персоны по ее uuid",
     description="Возвращает фильмы по id персоны",
 )
 async def person_films(
     person_id: str, person_service: PersonService = Depends(get_person_service)
-) -> List[PersonFilmWithRating]:
+) -> list[PersonFilmWithRating]:
     films = await person_service.get_only_person_films(person_id)
     if not films:
         raise HTTPException(
