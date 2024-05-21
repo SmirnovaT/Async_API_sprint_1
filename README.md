@@ -1,6 +1,6 @@
 Ссылка на репозиторий - [репозиторий](https://github.com/SmirnovaT/Async_API_sprint_1)
 
-Работа выполнена в директории fastapi-solutions
+Работа выполнена в директории tests/functional - [ссылка на директорию](https://github.com/SmirnovaT/Async_API_sprint_2/tree/main/tests/functional)
 
 # Проектная работа 4 спринта
 
